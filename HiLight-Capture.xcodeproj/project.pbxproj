@@ -13,6 +13,7 @@
 		8EB0DEF9247A5E250039D680 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8EB0DEF8247A5E250039D680 /* Assets.xcassets */; };
 		8EB0DEFC247A5E250039D680 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8EB0DEFB247A5E250039D680 /* Preview Assets.xcassets */; };
 		8EB0DEFF247A5E250039D680 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 8EB0DEFD247A5E250039D680 /* LaunchScreen.storyboard */; };
+		8EB0DF09247A5E9B0039D680 /* ScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EB0DF08247A5E9B0039D680 /* ScannerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -24,6 +25,7 @@
 		8EB0DEFB247A5E250039D680 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		8EB0DEFE247A5E250039D680 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		8EB0DF00247A5E250039D680 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		8EB0DF08247A5E9B0039D680 /* ScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ScannerView.swift; path = "HiLight-Capture/ScannerView.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -40,6 +42,7 @@
 		8EB0DEE6247A5E220039D680 = {
 			isa = PBXGroup;
 			children = (
+				8EB0DF08247A5E9B0039D680 /* ScannerView.swift */,
 				8EB0DEF1247A5E230039D680 /* HiLight-Capture */,
 				8EB0DEF0247A5E230039D680 /* Products */,
 			);
@@ -147,6 +150,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				8EB0DEF3247A5E230039D680 /* AppDelegate.swift in Sources */,
+				8EB0DF09247A5E9B0039D680 /* ScannerView.swift in Sources */,
 				8EB0DEF5247A5E230039D680 /* SceneDelegate.swift in Sources */,
 				8EB0DEF7247A5E230039D680 /* ContentView.swift in Sources */,
 			);
