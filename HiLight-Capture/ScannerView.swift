@@ -11,9 +11,13 @@ import AVFoundation
 import UIKit
 import SwiftUI
 
-final class ScannerViewController: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
+final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDelegate, ObservableObject {
     var captureSession: AVCaptureSession!
     var previewLayer: AVCaptureVideoPreviewLayer!
+    var videoOutput = AVCaptureVideoDataOutput()
+//    var didOutputNewImage: (UIImage) -> Void
+    
+    var viewModel: ViewModel?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -37,14 +41,15 @@ final class ScannerViewController: UIViewController, AVCaptureMetadataOutputObje
             return
         }
 
-        let metadataOutput = AVCaptureMetadataOutput()
+        
+        
+        self.videoOutput.setSampleBufferDelegate(self, queue: DispatchQueue(label: "sample buffer"))
 
-        if (captureSession.canAddOutput(metadataOutput)) {
-            captureSession.addOutput(metadataOutput)
+        // always make sure the AVCaptureSession can accept the selected output
+        if captureSession.canAddOutput(self.videoOutput) {
 
-            metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
-            metadataOutput.metadataObjectTypes = [.qr, .ean13, .code128]
-
+          // add the output to the current session
+          captureSession.addOutput(self.videoOutput)
         } else {
             failed()
             return
@@ -82,19 +87,23 @@ final class ScannerViewController: UIViewController, AVCaptureMetadataOutputObje
         }
     }
 
-    func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
-        captureSession.stopRunning()
+    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return  }
+        let ciImage = CIImage(cvPixelBuffer: imageBuffer)
 
-        if let metadataObject = metadataObjects.first {
-            guard let readableObject = metadataObject as? AVMetadataMachineReadableCodeObject else { return }
-            guard let stringValue = readableObject.stringValue else { return }
-            AudioServicesPlaySystemSound(SystemSoundID(kSystemSoundID_Vibrate))
-            found(code: stringValue)
+        let context = CIContext()
+        guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else { return  }
+
+        let image = UIImage(cgImage: cgImage)
+
+        DispatchQueue.main.async {
+            self.viewModel?.decoded_seq = "1010"
         }
-
-        dismiss(animated: true)
+        print("hello!!! \(self.viewModel?.decoded_seq)")
+      // the final picture is here, we call the completion block
+//      self.didOutputNewImage()
     }
-
+    
     func found(code: String) {
         print(code)
     }
@@ -108,16 +117,23 @@ final class ScannerViewController: UIViewController, AVCaptureMetadataOutputObje
     }
 }
 
-extension ScannerViewController: UIViewControllerRepresentable {
+struct ScanView: UIViewControllerRepresentable {
+    var viewModel: ViewModel
 
     public typealias UIViewControllerType = ScannerViewController
 
-    func makeUIViewController(context: UIViewControllerRepresentableContext<ScannerViewController>) -> ScannerViewController {
-        
-        return ScannerViewController()
+    func makeUIViewController(context: Context) -> ScannerViewController {
+        let controller = ScannerViewController()
+        controller.viewModel = viewModel
+        return controller
     }
     
-    func updateUIViewController(_ uiViewController: ScannerViewController, context: UIViewControllerRepresentableContext<ScannerViewController>) {
+    func updateUIViewController(_ uiViewController: ScannerViewController, context:Context) {
         
     }
+}
+
+class ViewModel: ObservableObject {
+    @Published var someTxt = "Initial Content"
+    @Published var decoded_seq = "0101"
 }

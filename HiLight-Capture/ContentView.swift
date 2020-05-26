@@ -9,11 +9,13 @@
 import SwiftUI
 
 struct ContentView: View {
+    
+    @ObservedObject var viewModel = ViewModel()
     var body: some View {
         NavigationView {
             ZStack {
-                ScannerViewController()
-                Text("Scan Window")
+                ScanView(viewModel: viewModel)
+                Text("\(viewModel.decoded_seq)")
                     .navigationBarTitle(Text("Scanner"), displayMode: .inline)
             }
         }
