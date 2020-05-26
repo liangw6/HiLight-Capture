@@ -12,12 +12,17 @@ import UIKit
 import SwiftUI
 
 final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDelegate, ObservableObject {
+    
     var captureSession: AVCaptureSession!
     var previewLayer: AVCaptureVideoPreviewLayer!
     var videoOutput = AVCaptureVideoDataOutput()
 //    var didOutputNewImage: (UIImage) -> Void
     
     var viewModel: ViewModel?
+    
+    var lastTimestamp = Date().toMillisTimestamp()!
+    var lastTimerTick = 0
+    var tick = 0
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -27,7 +32,7 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
 
         guard let videoCaptureDevice = AVCaptureDevice.default(for: .video) else { return }
         let videoInput: AVCaptureDeviceInput
-
+        
         do {
             videoInput = try AVCaptureDeviceInput(device: videoCaptureDevice)
         } catch {
@@ -36,6 +41,7 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
 
         if (captureSession.canAddInput(videoInput)) {
             captureSession.addInput(videoInput)
+            configureCameraForHighestFrameRate(device: videoCaptureDevice)
         } else {
             failed()
             return
@@ -64,6 +70,42 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
         captureSession.startRunning()
     }
 
+    func configureCameraForHighestFrameRate(device: AVCaptureDevice) {
+        
+        var bestFormat: AVCaptureDevice.Format?
+        var bestFrameRateRange: AVFrameRateRange?
+
+        for format in device.formats {
+            for range in format.videoSupportedFrameRateRanges {
+                if range.maxFrameRate > bestFrameRateRange?.maxFrameRate ?? 0 {
+                    bestFormat = format
+                    bestFrameRateRange = range
+                }
+//                print("curr format \(format) with min \(range.minFrameRate) and max \(range.maxFrameRate)")
+            }
+        }
+        
+        if let bestFormat = bestFormat,
+           let bestFrameRateRange = bestFrameRateRange {
+            do {
+                try device.lockForConfiguration()
+
+                // Set the device's active format.
+                device.activeFormat = bestFormat
+
+                // Set the device's min/max frame duration.
+                let duration = bestFrameRateRange.minFrameDuration
+                device.activeVideoMinFrameDuration = CMTimeMake(value: 1, timescale: Int32(60))
+                device.activeVideoMaxFrameDuration = CMTimeMake(value: 1, timescale: Int32(60))
+
+                device.unlockForConfiguration()
+            } catch {
+                // Handle error.
+                print("oh no!!!!")
+            }
+        }
+    }
+    
     func failed() {
         let ac = UIAlertController(title: "Scanning not supported", message: "Your device does not support scanning a code from an item. Please use a device with a camera.", preferredStyle: .alert)
         ac.addAction(UIAlertAction(title: "OK", style: .default))
@@ -96,10 +138,24 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
 
         let image = UIImage(cgImage: cgImage)
 
+        // make sure we are at correct framerate
+        if (lastTimerTick == 0) {
+            lastTimerTick = tick
+            lastTimestamp = Date().toMillisTimestamp()
+        }
+        
+        let new_timestamp = Date().toMillisTimestamp()!
+        if (new_timestamp - lastTimestamp > 1000) {
+            print("frame rate is at \(tick - lastTimerTick) fps")
+            lastTimerTick = tick
+            lastTimestamp = new_timestamp
+        }
+        tick += 1
+        
         DispatchQueue.main.async {
             self.viewModel?.decoded_seq = "1010"
         }
-        print("hello!!! \(self.viewModel?.decoded_seq)")
+//        print("hello!!! \(self.viewModel?.decoded_seq)")
       // the final picture is here, we call the completion block
 //      self.didOutputNewImage()
     }
@@ -117,6 +173,7 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
     }
 }
 
+// To communicate back with the SwiftUI
 struct ScanView: UIViewControllerRepresentable {
     var viewModel: ViewModel
 
@@ -133,7 +190,34 @@ struct ScanView: UIViewControllerRepresentable {
     }
 }
 
+// Wrapper for the text field we are interested in sending between
+// SwiftUI and UIViewController
 class ViewModel: ObservableObject {
     @Published var someTxt = "Initial Content"
     @Published var decoded_seq = "0101"
 }
+
+extension Date {
+    func toMillisTimestamp() -> Int64! {
+        return Int64(self.timeIntervalSince1970 * 1000)
+    }
+}
+
+//extension AVCaptureDevice {
+//    func set(frameRate: Double) {
+//    guard let range = activeFormat.videoSupportedFrameRateRanges.first,
+//        range.minFrameRate...range.maxFrameRate ~= frameRate
+//        else {
+//            print("Requested FPS is not supported by the device's activeFormat !")
+//            return
+//    }
+//
+//    do { try lockForConfiguration()
+//        activeVideoMinFrameDuration = CMTimeMake(value: 1, timescale: Int32(frameRate))
+//        activeVideoMaxFrameDuration = CMTimeMake(value: 1, timescale: Int32(frameRate))
+//        unlockForConfiguration()
+//    } catch {
+//        print("LockForConfiguration failed with error: \(error.localizedDescription)")
+//    }
+//  }
+//}
