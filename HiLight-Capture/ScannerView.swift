@@ -94,7 +94,7 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
                 device.activeFormat = bestFormat
 
                 // Set the device's min/max frame duration.
-                let duration = bestFrameRateRange.minFrameDuration
+//                let duration = bestFrameRateRange.minFrameDuration
                 device.activeVideoMinFrameDuration = CMTimeMake(value: 1, timescale: Int32(60))
                 device.activeVideoMaxFrameDuration = CMTimeMake(value: 1, timescale: Int32(60))
 
@@ -133,10 +133,11 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
         guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return  }
         let ciImage = CIImage(cvPixelBuffer: imageBuffer)
 
-        let context = CIContext()
-        guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else { return  }
-
-        let image = UIImage(cgImage: cgImage)
+        print("average color \(ciImage.averageColor)")
+//        let context = CIContext()
+//        guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else { return  }
+//
+//        let image = UIImage(cgImage: cgImage)
 
         // make sure we are at correct framerate
         if (lastTimerTick == 0) {
@@ -170,6 +171,22 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
 
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
         return .portrait
+    }
+}
+
+extension CIImage {
+    var averageColor: UIColor? {
+//        guard let inputImage = CIImage(image: self) else { return nil }
+        let extentVector = CIVector(x: self.extent.origin.x, y: self.extent.origin.y, z: self.extent.size.width, w: self.extent.size.height)
+
+        guard let filter = CIFilter(name: "CIAreaAverage", parameters: [kCIInputImageKey: self, kCIInputExtentKey: extentVector]) else { return nil }
+        guard let outputImage = filter.outputImage else { return nil }
+
+        var bitmap = [UInt8](repeating: 0, count: 4)
+        let context = CIContext(options: [.workingColorSpace: kCFNull])
+        context.render(outputImage, toBitmap: &bitmap, rowBytes: 4, bounds: CGRect(x: 0, y: 0, width: 1, height: 1), format: .RGBA8, colorSpace: nil)
+
+        return UIColor(red: CGFloat(bitmap[0]) / 255, green: CGFloat(bitmap[1]) / 255, blue: CGFloat(bitmap[2]) / 255, alpha: CGFloat(bitmap[3]) / 255)
     }
 }
 
