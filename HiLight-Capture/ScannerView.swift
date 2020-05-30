@@ -12,6 +12,12 @@ import UIKit
 import SwiftUI
 
 final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDelegate, ObservableObject {
+    let FRAME_SIZE = 6
+    let simpleFFT = SimpleFFT()
+    // 600 = 10 seconds * 60 fps
+    var data_buf = [Float](repeating: 0, count: 600)
+    var head_idx = 0
+    var tail_idx = 0
     
     var captureSession: AVCaptureSession!
     var previewLayer: AVCaptureVideoPreviewLayer!
@@ -86,7 +92,7 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
         }
         
         if let bestFormat = bestFormat,
-           let bestFrameRateRange = bestFrameRateRange {
+           let _ = bestFrameRateRange {
             do {
                 try device.lockForConfiguration()
 
@@ -133,7 +139,27 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
         guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return  }
         let ciImage = CIImage(cvPixelBuffer: imageBuffer)
 
-        print("average color \(ciImage.averageColor)")
+//        print("average color \(ciImage.averageColor)")
+        let currColorChange = ciImage.averageColor
+        if (currColorChange != nil) {
+            if (tail_idx < data_buf.count) {
+                data_buf[tail_idx] = currColorChange!
+                // array slicing in swift is inclusive on both ends
+                if (tail_idx - head_idx >= FRAME_SIZE - 1) {
+                    let FFToutput = simpleFFT.runFFTonSignal(Array(data_buf[head_idx...tail_idx]))
+                    print(FFToutput)
+                    
+                    head_idx += 1
+                }
+                tail_idx += 1
+            } else {
+                // should never reach there until 10 seconds
+                print("buffer full!!!")
+            }
+        } else {
+            print("skipping frame!!!")
+        }
+        
 //        let context = CIContext()
 //        guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else { return  }
 //
@@ -175,7 +201,7 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
 }
 
 extension CIImage {
-    var averageColor: UIColor? {
+    var averageColor: Float? {
 //        guard let inputImage = CIImage(image: self) else { return nil }
         let extentVector = CIVector(x: self.extent.origin.x, y: self.extent.origin.y, z: self.extent.size.width, w: self.extent.size.height)
 
@@ -186,7 +212,11 @@ extension CIImage {
         let context = CIContext(options: [.workingColorSpace: kCFNull])
         context.render(outputImage, toBitmap: &bitmap, rowBytes: 4, bounds: CGRect(x: 0, y: 0, width: 1, height: 1), format: .RGBA8, colorSpace: nil)
 
-        return UIColor(red: CGFloat(bitmap[0]) / 255, green: CGFloat(bitmap[1]) / 255, blue: CGFloat(bitmap[2]) / 255, alpha: CGFloat(bitmap[3]) / 255)
+        // average of all three channels
+        // output is between [0, 1]
+        return ( Float(bitmap[0]) + Float(bitmap[1]) + Float(bitmap[2]) ) * Float(bitmap[3]) / 3
+        
+//        return UIColor(red: CGFloat(bitmap[0]) / 255, green: CGFloat(bitmap[1]) / 255, blue: CGFloat(bitmap[2]) / 255, alpha: CGFloat(bitmap[3]) / 255)
     }
 }
 

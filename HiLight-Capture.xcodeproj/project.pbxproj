@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		8E37692E2482E3EC00D126E8 /* SimpleFFT.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E37692D2482E3EC00D126E8 /* SimpleFFT.swift */; };
 		8EB0DEF3247A5E230039D680 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EB0DEF2247A5E230039D680 /* AppDelegate.swift */; };
 		8EB0DEF5247A5E230039D680 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EB0DEF4247A5E230039D680 /* SceneDelegate.swift */; };
 		8EB0DEF7247A5E230039D680 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EB0DEF6247A5E230039D680 /* ContentView.swift */; };
@@ -17,6 +18,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		8E37692D2482E3EC00D126E8 /* SimpleFFT.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimpleFFT.swift; sourceTree = "<group>"; };
 		8EB0DEEF247A5E230039D680 /* HiLight-Capture.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "HiLight-Capture.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		8EB0DEF2247A5E230039D680 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		8EB0DEF4247A5E230039D680 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
@@ -43,6 +45,7 @@
 			isa = PBXGroup;
 			children = (
 				8EB0DF08247A5E9B0039D680 /* ScannerView.swift */,
+				8E37692D2482E3EC00D126E8 /* SimpleFFT.swift */,
 				8EB0DEF1247A5E230039D680 /* HiLight-Capture */,
 				8EB0DEF0247A5E230039D680 /* Products */,
 			);
@@ -152,6 +155,7 @@
 				8EB0DEF3247A5E230039D680 /* AppDelegate.swift in Sources */,
 				8EB0DF09247A5E9B0039D680 /* ScannerView.swift in Sources */,
 				8EB0DEF5247A5E230039D680 /* SceneDelegate.swift in Sources */,
+				8E37692E2482E3EC00D126E8 /* SimpleFFT.swift in Sources */,
 				8EB0DEF7247A5E230039D680 /* ContentView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
