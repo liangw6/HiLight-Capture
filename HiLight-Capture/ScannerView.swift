@@ -13,7 +13,13 @@ import SwiftUI
 
 final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDelegate, ObservableObject {
     let FRAME_SIZE = 6
+    let ini_n_frame = 60          // during the first init_n_frame, the processing will sleep, to allow camera warm up
+    let tot_packet_size = 9       // 8 data + 1 parity, not including preamble bit
     let simpleFFT = SimpleFFT()
+    
+    var resultManager = ResultManager()
+    var detectedPreambleSequence = false
+    let PreambleSequence = 0
     // 600 = 10 seconds * 60 fps
     var data_buf = [Float](repeating: 0, count: 600)
     var head_idx = 0
@@ -141,20 +147,50 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
 
 //        print("average color \(ciImage.averageColor)")
         let currColorChange = ciImage.averageColor
-        if (currColorChange != nil) {
+        if (currColorChange != nil && tick >= self.ini_n_frame) {
             if (tail_idx < data_buf.count) {
                 data_buf[tail_idx] = currColorChange!
                 // array slicing in swift is inclusive on both ends
                 if (tail_idx - head_idx >= FRAME_SIZE - 1) {
                     let FFToutput = simpleFFT.runFFTonSignal(Array(data_buf[head_idx...tail_idx]))
-                    print(FFToutput)
+                    let currDataBit = self.resultManager.getDataBit(signal: FFToutput)
                     
-                    head_idx += 1
+                    if (self.detectedPreambleSequence) {
+                        
+                        if (self.resultManager.resultSoFar.count == tot_packet_size - 1) {
+                            print("Final Result \(self.resultManager.resultSoFar) with correct? = \(self.resultManager.isSequenceCorrect(parityBit: currDataBit))")
+                            self.resultManager.clearResult()
+                            self.detectedPreambleSequence = false
+                            return
+                        }
+                        
+                        self.resultManager.appendDataBit(datab: currDataBit)
+                        print("\(FFToutput) as \(currDataBit)")
+                        head_idx = tail_idx + 1
+                    } else {
+                        if (currDataBit == self.PreambleSequence) {
+                            print("detected preamble")
+                            print("\(FFToutput) as \(currDataBit)")
+                            self.detectedPreambleSequence = true
+                            // have finished preamble, we can just skip to next data
+                            head_idx = tail_idx + 1
+                        } else {
+                            // use sliding window to look for preamble sequence
+                            head_idx = head_idx + 1
+                        }
+                    }
+                    
+                    
+                    
+//                    head_idx += 1
+                    
                 }
                 tail_idx += 1
             } else {
                 // should never reach there until 10 seconds
-                print("buffer full!!!")
+                DispatchQueue.main.async {
+                    self.viewModel?.decoded_seq = "Buffer Full!"
+                }
             }
         } else {
             print("skipping frame!!!")
@@ -179,9 +215,12 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
         }
         tick += 1
         
-        DispatchQueue.main.async {
-            self.viewModel?.decoded_seq = "1010"
+        if (tick >= self.ini_n_frame) {
+            DispatchQueue.main.async {
+                self.viewModel?.decoded_seq = "Ready!"
+            }
         }
+
 //        print("hello!!! \(self.viewModel?.decoded_seq)")
       // the final picture is here, we call the completion block
 //      self.didOutputNewImage()
@@ -241,7 +280,7 @@ struct ScanView: UIViewControllerRepresentable {
 // SwiftUI and UIViewController
 class ViewModel: ObservableObject {
     @Published var someTxt = "Initial Content"
-    @Published var decoded_seq = "0101"
+    @Published var decoded_seq = "Initializing"
 }
 
 extension Date {
