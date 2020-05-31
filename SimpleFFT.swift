@@ -17,8 +17,10 @@ import Accelerate
 class SimpleFFT {
     // some constants for FFT
     let n = 6
-    lazy var log2n: vDSP_Length = vDSP_Length(log2(Float(n)))
-    let halfN: Int = 3
+    
+    // the fft initializer has to take in lengh of 2^()
+    let tot_fft_length = 16
+    lazy var log2n: vDSP_Length = vDSP_Length(log2(Float(tot_fft_length)))
     
     var fftSetup: vDSP.FFT<DSPSplitComplex>!
             
@@ -31,16 +33,28 @@ class SimpleFFT {
     
     // returns two arrays, frequencies and corresponding magnitudes
     func runFFTonSignal(_ signal: [Float]) -> [Float] {
+        assert(signal.count == n)
+        
+        // duplicate signals
+        var i = 0
+        var duplicated_signal = [Float](repeating: 0,
+            count: tot_fft_length)
+        while (i < tot_fft_length) {
+            duplicated_signal[i] = signal[i % signal.count]
+            i += 1
+        }
+        
+        
         var forwardInputReal = [Float](repeating: 0,
-                                       count: n)
+                                       count: tot_fft_length)
         var forwardInputImag = [Float](repeating: 0,
-                                       count: n)
+                                       count: tot_fft_length)
         var forwardOutputReal = [Float](repeating: 0,
-                                        count: n)
+                                        count: tot_fft_length)
         var forwardOutputImag = [Float](repeating: 0,
-                                        count: n)
+                                        count: tot_fft_length)
         var forwardOutputMagnitude = [Float](repeating: 0,
-                                        count: n)
+                                        count: tot_fft_length)
         
         
         var highlights_mag = [Float](repeating: 0, count: 15)
@@ -56,7 +70,7 @@ class SimpleFFT {
                                                            imagp: forwardInputImagPtr.baseAddress!)
                         
                         // 2: Convert the real values in `signal` to complex numbers.
-                        signal.withUnsafeBytes {
+                        duplicated_signal.withUnsafeBytes {
                             vDSP.convert(interleavedComplexVector: [DSPComplex]($0.bindMemory(to: DSPComplex.self)),
                                          toSplitComplexVector: &forwardInput)
                         }
