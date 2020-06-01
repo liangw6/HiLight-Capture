@@ -19,15 +19,15 @@ class SimpleFFT {
     let n = 6
     
     // the fft initializer has to take in lengh of 2^()
-    let tot_fft_length = 16
+    let tot_fft_length = 24
     lazy var log2n: vDSP_Length = vDSP_Length(log2(Float(tot_fft_length)))
     
-    var fftSetup: vDSP.FFT<DSPSplitComplex>!
+    var fftSetup: vDSP_DFT_Setup
             
     init () {
-        fftSetup = vDSP.FFT(log2n: log2n,
-            radix: .radix2,
-            ofType: DSPSplitComplex.self)
+        fftSetup = vDSP_DFT_zop_CreateSetup(nil,
+                                            vDSP_Length(tot_fft_length),
+                                            vDSP_DFT_Direction.FORWARD)!
     }
     
     
@@ -45,8 +45,9 @@ class SimpleFFT {
         }
         
         
-        var forwardInputReal = [Float](repeating: 0,
-                                       count: tot_fft_length)
+//        var forwardInputReal = [Float](repeating: 0,
+//                                       count: tot_fft_length)
+        var forwardInputReal = duplicated_signal
         var forwardInputImag = [Float](repeating: 0,
                                        count: tot_fft_length)
         var forwardOutputReal = [Float](repeating: 0,
@@ -57,44 +58,53 @@ class SimpleFFT {
                                         count: tot_fft_length)
         
         
-        var highlights_mag = [Float](repeating: 0, count: 15)
+//        var highlights_mag = [Float](repeating: 0, count: 15)
 //        var highlights_freq = [Float](repeating: 0, count: 15)
         
-        forwardInputReal.withUnsafeMutableBufferPointer { forwardInputRealPtr in
-            forwardInputImag.withUnsafeMutableBufferPointer { forwardInputImagPtr in
-                forwardOutputReal.withUnsafeMutableBufferPointer { forwardOutputRealPtr in
-                    forwardOutputImag.withUnsafeMutableBufferPointer { forwardOutputImagPtr in
-                        
-                        // 1: Create a `DSPSplitComplex` to contain the signal.
-                        var forwardInput = DSPSplitComplex(realp: forwardInputRealPtr.baseAddress!,
-                                                           imagp: forwardInputImagPtr.baseAddress!)
-                        
-                        // 2: Convert the real values in `signal` to complex numbers.
-                        duplicated_signal.withUnsafeBytes {
-                            vDSP.convert(interleavedComplexVector: [DSPComplex]($0.bindMemory(to: DSPComplex.self)),
-                                         toSplitComplexVector: &forwardInput)
-                        }
-                        
-                        // 3: Create a `DSPSplitComplex` to receive the FFT result.
-                        var forwardOutput = DSPSplitComplex(realp: forwardOutputRealPtr.baseAddress!,
-                                                            imagp: forwardOutputImagPtr.baseAddress!)
-                        
-                        // 4: Perform the forward FFT.
-                        self.fftSetup.forward(input: forwardInput,
-                                         output: &forwardOutput)
-                        
-                        // calculate magnitude
-//                        print("output highilights")
-                        vDSP.absolute(forwardOutput, result: &forwardOutputMagnitude)
-                        
-//                        highlights_freq = [829, 830, 831, 832, 833, 834, 835, 836, 837, 838, 839, 840, 841, 842, 843]
-//                        highlights_mag = Array(forwardOutputMagnitude[829...843])
-                        highlights_mag = Array(forwardOutputMagnitude)
-                    }
-                }
-            }
-        }
-        return highlights_mag
+        let forwardOutputRealPtr: UnsafeMutablePointer = UnsafeMutablePointer(mutating: forwardOutputReal)
+        let forwardOutputImagPtr: UnsafeMutablePointer = UnsafeMutablePointer(mutating: forwardOutputImag)
+        vDSP_DFT_Execute(self.fftSetup,
+                        forwardInputReal, forwardInputImag,
+                        forwardOutputRealPtr, forwardOutputImagPtr)
+        let forwardOutput = DSPSplitComplex(realp: forwardOutputRealPtr,
+                                            imagp: forwardOutputImagPtr)
+        vDSP.absolute(forwardOutput, result: &forwardOutputMagnitude)
+        
+        print("\(signal)")
+        print("\(forwardOutputMagnitude)")
+        
+//        let _ = withUnsafeMutablePointer(to: &forwardOutputReal, { forwardOutputRealPtr in
+//            let _ = withUnsafeMutablePointer(to: &forwardOutputImag, { forwardOutputImagPtr in
+//
+//                // 1: Create a `DSPSplitComplex` to contain the signal.
+////                        var forwardInput = DSPSplitComplex(realp: forwardInputRealPtr.baseAddress!,
+////                                                           imagp: forwardInputImagPtr.baseAddress!)
+//
+//                // 2: Convert the real values in `signal` to complex numbers.
+//                duplicated_signal.withUnsafeBytes {
+//                    vDSP.convert(interleavedComplexVector: [DSPComplex]($0.bindMemory(to: DSPComplex.self)),
+//                                 toSplitComplexVector: &forwardInput)
+//                }
+//
+//                // 3: Create a `DSPSplitComplex` to receive the FFT result.
+//                var forwardOutput = DSPSplitComplex(realp: forwardOutputRealPtr,
+//                                                    imagp: forwardOutputImagPtr)
+//
+//                // 4: Perform the forward FFT.
+//                vDSP_DFT_Execute(self.fftSetup,
+//                                 forwardInputReal, forwardInputImag,
+//                                 forwardOutputRealPtr, forwardOutputImagPtr)
+////                        self.fftSetup.forward(input: forwardInput,
+////                                         output: &forwardOutput)
+//
+//                // calculate magnitude
+////                        print("output highilights")
+//                vDSP.absolute(forwardOutput, result: &forwardOutputMagnitude)
+//
+//            })
+//
+//        })
+        return forwardOutputMagnitude
     }
     
 }

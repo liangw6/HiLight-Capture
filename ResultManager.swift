@@ -20,10 +20,10 @@ class ResultManager {
     // otherwise return -1
     func getDataBit(signal: [Float]) -> Int {
         // 6 frames per signal
-        assert(signal.count == 16)
+//        assert(signal.count == 16)
         
-        let freq_10hz = 3
-        let freq_20hz = 5
+        let freq_10hz = 4
+        let freq_20hz = 8
         if (signal[freq_10hz - 1] <= signal[freq_10hz] && signal[freq_10hz] >= signal[freq_10hz + 1] &&
             signal[freq_20hz - 1] <= signal[freq_20hz] && signal[freq_20hz] >= signal[freq_20hz + 1]
             ) {
