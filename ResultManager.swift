@@ -25,7 +25,8 @@ class ResultManager {
         let freq_10hz = 3
         let freq_20hz = 5
         if (signal[freq_10hz - 1] <= signal[freq_10hz] && signal[freq_10hz] >= signal[freq_10hz + 1] &&
-            signal[freq_20hz - 1] <= signal[freq_20hz] && signal[freq_20hz] >= signal[freq_20hz + 1]) {
+            signal[freq_20hz - 1] <= signal[freq_20hz] && signal[freq_20hz] >= signal[freq_20hz + 1]
+            ) {
             // bins corresponding to 10 hz && 20 hz are the local maxima
             // this corresponds to freq of 30 hz (10 + 20)
             if (Int(signal[freq_10hz]) >= self.threshold) {

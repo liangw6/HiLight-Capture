@@ -19,7 +19,7 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
     
     var resultManager = ResultManager()
     var detectedPreambleSequence = false
-    let PreambleSequence = 0
+    let PreambleSequence = [0, 0]
     // 600 = 10 seconds * 60 fps
     var data_buf = [Float](repeating: 0, count: 600)
     var head_idx = 0
@@ -28,6 +28,7 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
     var captureSession: AVCaptureSession!
     var previewLayer: AVCaptureVideoPreviewLayer!
     var videoOutput = AVCaptureVideoDataOutput()
+    var videoCaptureDevice: AVCaptureDevice!
 //    var didOutputNewImage: (UIImage) -> Void
     
     var viewModel: ViewModel?
@@ -42,18 +43,20 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
         view.backgroundColor = UIColor.blue
         captureSession = AVCaptureSession()
 
-        guard let videoCaptureDevice = AVCaptureDevice.default(for: .video) else { return }
+        self.videoCaptureDevice = AVCaptureDevice.default(AVCaptureDevice.DeviceType.builtInWideAngleCamera, for: .video,
+                position: AVCaptureDevice.Position.back)
         let videoInput: AVCaptureDeviceInput
         
         do {
-            videoInput = try AVCaptureDeviceInput(device: videoCaptureDevice)
+            videoInput = try AVCaptureDeviceInput(device: self.videoCaptureDevice)
         } catch {
             return
         }
 
         if (captureSession.canAddInput(videoInput)) {
             captureSession.addInput(videoInput)
-            configureCameraForHighestFrameRate(device: videoCaptureDevice)
+            configureCameraForHighestFrameRate(device: self.videoCaptureDevice)
+//            captureSession.sessionPreset = AVCaptureSession.Preset.hd1920x1080
         } else {
             failed()
             return
@@ -140,6 +143,30 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
             captureSession.stopRunning()
         }
     }
+    
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        let touchPoint = touches.first! as UITouch
+        let screenSize = view.bounds.size
+        let focusPoint = CGPoint(x: touchPoint.location(in: view).y / screenSize.height, y: 1.0 - touchPoint.location(in: view).x / screenSize.width)
+
+        if let device = self.videoCaptureDevice {
+            do {
+                try device.lockForConfiguration()
+                if device.isFocusPointOfInterestSupported {
+                    device.focusPointOfInterest = focusPoint
+                    device.focusMode = AVCaptureDevice.FocusMode.autoFocus
+                }
+                if device.isExposurePointOfInterestSupported {
+                    device.exposurePointOfInterest = focusPoint
+                    device.exposureMode = AVCaptureDevice.ExposureMode.autoExpose
+                }
+                device.unlockForConfiguration()
+
+            } catch {
+                // Handle errors here
+            }
+        }
+    }
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return  }
@@ -147,17 +174,41 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
 
 //        print("average color \(ciImage.averageColor)")
         let currColorChange = ciImage.averageColor
+        print("average color \(currColorChange!)")
         if (currColorChange != nil && tick >= self.ini_n_frame) {
             if (tail_idx < data_buf.count) {
                 data_buf[tail_idx] = currColorChange!
-                // array slicing in swift is inclusive on both ends
-                if (tail_idx - head_idx >= FRAME_SIZE - 1) {
-                    let FFToutput = simpleFFT.runFFTonSignal(Array(data_buf[head_idx...tail_idx]))
-                    let currDataBit = self.resultManager.getDataBit(signal: FFToutput)
-                    
-                    if (self.detectedPreambleSequence) {
-                        
+                
+                // we have not yet found the preamble sequence
+                if (!self.detectedPreambleSequence) {
+                    if (tail_idx - head_idx >= FRAME_SIZE * self.PreambleSequence.count - 1) {
+                        let currFFToutput = simpleFFT.runFFTonSignal(Array(data_buf[(tail_idx - FRAME_SIZE + 1)...tail_idx]))
+                        let currDataBit = self.resultManager.getDataBit(signal: currFFToutput)
+                        if (currDataBit == self.PreambleSequence[1]) {
+                            let FFToutput = simpleFFT.runFFTonSignal(Array(data_buf[head_idx...(head_idx + FRAME_SIZE - 1)]))
+                            let lastDataBit = self.resultManager.getDataBit(signal: FFToutput)
+                            if (lastDataBit == self.PreambleSequence[0]) {
+                                print("detected preamble")
+                                print("preabmble [0]: \(FFToutput) as \(lastDataBit)")
+                                print("preablme [1]: \(currFFToutput) as \(currDataBit)")
+
+                                self.detectedPreambleSequence = true
+                                // have finished preamble, we can just skip to next data
+                                head_idx = tail_idx + 1
+                            }
+                        } else {
+                            // use sliding window to look for preamble sequence
+                            head_idx = head_idx + 1
+                        }
+                    }
+                } else {
+                    // we have preabmel sequence found
+                    // array slicing in swift is inclusive on both ends
+                    if (tail_idx - head_idx >= FRAME_SIZE - 1) {
+                        let FFToutput = simpleFFT.runFFTonSignal(Array(data_buf[head_idx...tail_idx]))
+                        let currDataBit = self.resultManager.getDataBit(signal: FFToutput)
                         if (self.resultManager.resultSoFar.count == tot_packet_size - 1) {
+                            print("\(FFToutput) as \(currDataBit)")
                             print("Final Result \(self.resultManager.resultSoFar) with correct? = \(self.resultManager.isSequenceCorrect(parityBit: currDataBit))")
                             self.resultManager.clearResult()
                             self.detectedPreambleSequence = false
@@ -167,25 +218,11 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
                         self.resultManager.appendDataBit(datab: currDataBit)
                         print("\(FFToutput) as \(currDataBit)")
                         head_idx = tail_idx + 1
-                    } else {
-                        if (currDataBit == self.PreambleSequence) {
-                            print("detected preamble")
-                            print("\(FFToutput) as \(currDataBit)")
-                            self.detectedPreambleSequence = true
-                            // have finished preamble, we can just skip to next data
-                            head_idx = tail_idx + 1
-                        } else {
-                            // use sliding window to look for preamble sequence
-                            head_idx = head_idx + 1
-                        }
                     }
-                    
-                    
-                    
-//                    head_idx += 1
-                    
                 }
+                
                 tail_idx += 1
+                
             } else {
                 // should never reach there until 10 seconds
                 DispatchQueue.main.async {
@@ -193,7 +230,9 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
                 }
             }
         } else {
-            print("skipping frame!!!")
+            if (tick >= self.ini_n_frame) {
+                print("skipping frame!!!")
+            }
         }
         
 //        let context = CIContext()
