@@ -17,6 +17,7 @@ struct ContentView: View {
                 ScanView(viewModel: viewModel)
                 Text("\(viewModel.decoded_seq)")
                     .navigationBarTitle(Text("Scanner"), displayMode: .inline)
+                    .foregroundColor(.red)
             }
         }
     }

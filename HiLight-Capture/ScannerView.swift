@@ -22,8 +22,8 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
     var resultManager = ResultManager()
     var detectedPreambleSequence = false
     let PreambleSequence = [0, 0]
-    // 600 = 10 seconds * 60 fps
-    var data_buf = [Float](repeating: 0, count: 600)
+    // 1200 = 20 seconds * 60 fps
+    var data_buf = [Float](repeating: 0, count: 1200)
     var head_idx = 0
     var tail_idx = 0
     
@@ -174,17 +174,16 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
         guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return  }
         let ciImage = CIImage(cvPixelBuffer: imageBuffer)
 
-//        print("average color \(ciImage.averageColor)")
         let currColorChange = ciImage.averageColor
-        print("average color \(currColorChange!)")
+//        print("average color \(currColorChange!)")
         if (currColorChange != nil && tick >= self.ini_n_frame) {
             if (tail_idx < data_buf.count) {
                 data_buf[tail_idx] = currColorChange!
                 
                 // we have not yet found the preamble sequence
                 if (!self.detectedPreambleSequence && self.cool_down_ticks <= 0) {
-                    if currColorChange! > self.average_init_color * 1.3 {
-                        print("detected preamble")
+                    if currColorChange! > self.average_init_color * 1.6 {
+//                        print("detected preamble")
                         self.detectedPreambleSequence = true
                         // the first ever bright image is part of data
                         // keep it
@@ -219,13 +218,18 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
                         let FFToutput = simpleFFT.runFFTonSignal(Array(data_buf[head_idx...tail_idx]))
                         let currDataBit = self.resultManager.getDataBit(signal: FFToutput)
                         self.resultManager.appendDataBit(datab: currDataBit)
-                        print("\(FFToutput) as \(currDataBit)")
+//                        print("\(FFToutput) as \(currDataBit)")
                         if (self.resultManager.resultSoFar.count == tot_packet_size) {
                             print("Final Result \(self.resultManager.resultSoFar) with correct? = \(self.resultManager.isSequenceCorrect())")
                             self.resultManager.clearResult()
                             self.detectedPreambleSequence = false
                             // cool down for 2 frames
                             self.cool_down_ticks = 2
+                            
+                            // update visualization
+                            DispatchQueue.main.async {
+                                self.viewModel?.decoded_seq = "\(self.resultManager.resultSoFar)"
+                            }
                         }
 //
 //                        if (self.resultManager.resultSoFar.count == tot_packet_size - 1) {
