@@ -18,6 +18,7 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
     let tot_packet_size = 8       // [n x data_bits, 1 parity bit]
     let simpleFFT = SimpleFFT()
     
+    
     var average_init_color: Float = -1.0
     var cool_down_ticks = 0
     var resultManager = ResultManager()
@@ -158,6 +159,7 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
                 if device.isFocusPointOfInterestSupported {
                     device.focusPointOfInterest = focusPoint
                     device.focusMode = AVCaptureDevice.FocusMode.autoFocus
+//                    device.videoZoomFactor = 2
                 }
                 if device.isExposurePointOfInterestSupported {
                     device.exposurePointOfInterest = focusPoint
@@ -168,6 +170,13 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
             } catch {
                 // Handle errors here
             }
+        }
+        
+        if (self.resultManager.allResult.count > 0) {
+            for i in 0...(self.resultManager.allResult.count - 1) {
+                print(self.resultManager.allResult[i], terminator: ", ")
+            }
+            exit(0)
         }
     }
 
@@ -204,7 +213,7 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
                             let currFFToutput = simpleFFT.runFFTonSignal(Array(data_buf[curr_preamble_start...curr_preabmle_end]))
                             let currDataBit = self.resultManager.getDataBit(signal: currFFToutput, threshold: 1000)
                             if (currDataBit == self.PreambleSequence[curr_preamble_i]) {
-                                print("preabmble [\(curr_preamble_i)]: \(currFFToutput) as \(currDataBit)")
+//                                print("preabmble [\(curr_preamble_i)]: \(currFFToutput) as \(currDataBit)")
                                 curr_preabmle_end = curr_preabmle_end - FRAME_SIZE
                                 curr_preamble_start = curr_preabmle_end - FRAME_SIZE + 1
                                 curr_preamble_i -= 1

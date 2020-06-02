@@ -14,6 +14,7 @@ class ResultManager {
     let threshold = 2000
     // array of only 0 and 1 for now
     var resultSoFar = [Int]()
+    var allResult = [Int]()
     
     // input signal is FFT output
     // extract the databit, i.e. 0 or 1, from the signal if the signal is present
@@ -26,7 +27,7 @@ class ResultManager {
         let freq_20hz = 8
         let freq_30hz = 12
         
-        if (signal[freq_30hz] <= threshold && signal[freq_20hz] <= threshold) {
+        if (threshold != 0 && signal[freq_30hz] <= threshold && signal[freq_20hz] <= threshold) {
             return -1
         }
         
@@ -84,6 +85,10 @@ class ResultManager {
     
     func clearResult() {
         self.resultSoFar = [Int]()
+        // copy it to all_result
+        for result in self.resultSoFar {
+            self.allResult.append(result)
+        }
     }
     
     func getResult() -> [Int] {
