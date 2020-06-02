@@ -18,13 +18,18 @@ class ResultManager {
     // input signal is FFT output
     // extract the databit, i.e. 0 or 1, from the signal if the signal is present
     // otherwise return -1
-    func getDataBit(signal: [Float]) -> Int {
+    func getDataBit(signal: [Float], threshold: Float=0) -> Int {
         // 6 frames per signal
         assert(signal.count == 24)
         
 //        let freq_10hz = 4
         let freq_20hz = 8
         let freq_30hz = 12
+        
+        if (signal[freq_30hz] <= threshold && signal[freq_20hz] <= threshold) {
+            return -1
+        }
+        
         if (signal[freq_30hz] >= signal[freq_20hz]) {
             return 1
         } else {
@@ -53,10 +58,23 @@ class ResultManager {
     
     // assume the following layout for the data signal
     // [ignore_head, n x data_bits, 1 parity bit, ignore_tail]
+//    func isSequenceCorrect() -> Bool {
+//        assert(self.resultSoFar.count >= 3)
+//        let actual_sequence = Array(self.resultSoFar[1...(self.resultSoFar.count - 3)])
+//        let parityBit = self.resultSoFar[self.resultSoFar.count - 2]
+//        let currSum = actual_sequence.reduce(0, +)
+//        if (currSum % 2 != parityBit) {
+//            return false
+//        }
+//        return true
+//    }
+    
+    // assume the following layout for the data signal
+    // [n x data_bits, 1 parity bit]
     func isSequenceCorrect() -> Bool {
-        assert(self.resultSoFar.count >= 3)
-        let actual_sequence = Array(self.resultSoFar[1...(self.resultSoFar.count - 3)])
-        let parityBit = self.resultSoFar[self.resultSoFar.count - 2]
+        assert(self.resultSoFar.count >= 1)
+        let actual_sequence = Array(self.resultSoFar[0...(self.resultSoFar.count - 2)])
+        let parityBit = self.resultSoFar[self.resultSoFar.count - 1]
         let currSum = actual_sequence.reduce(0, +)
         if (currSum % 2 != parityBit) {
             return false
