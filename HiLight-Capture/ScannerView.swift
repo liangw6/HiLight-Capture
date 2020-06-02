@@ -14,9 +14,11 @@ import SwiftUI
 final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDelegate, ObservableObject {
     let FRAME_SIZE = 6
     let ini_n_frame = 60          // during the first init_n_frame, the processing will sleep, to allow camera warm up
-    let tot_packet_size = 9       // 8 data + 1 parity, not including preamble bit
+    let tot_packet_size = 11       // [ignore_head, 8 x data_bits, 1 parity bit, ignore_tail]
     let simpleFFT = SimpleFFT()
     
+    var average_init_color: Float = -1.0
+    var cool_down_ticks = 0
     var resultManager = ResultManager()
     var detectedPreambleSequence = false
     let PreambleSequence = [0, 0]
@@ -180,43 +182,67 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
                 data_buf[tail_idx] = currColorChange!
                 
                 // we have not yet found the preamble sequence
-                if (!self.detectedPreambleSequence) {
-                    if (tail_idx - head_idx >= FRAME_SIZE * self.PreambleSequence.count - 1) {
-                        let currFFToutput = simpleFFT.runFFTonSignal(Array(data_buf[(tail_idx - FRAME_SIZE + 1)...tail_idx]))
-                        let currDataBit = self.resultManager.getDataBit(signal: currFFToutput)
-                        if (currDataBit == self.PreambleSequence[1]) {
-                            let FFToutput = simpleFFT.runFFTonSignal(Array(data_buf[head_idx...(head_idx + FRAME_SIZE - 1)]))
-                            let lastDataBit = self.resultManager.getDataBit(signal: FFToutput)
-                            if (lastDataBit == self.PreambleSequence[0]) {
-                                print("detected preamble")
-                                print("preabmble [0]: \(FFToutput) as \(lastDataBit)")
-                                print("preablme [1]: \(currFFToutput) as \(currDataBit)")
-
-                                self.detectedPreambleSequence = true
-                                // have finished preamble, we can just skip to next data
-                                head_idx = tail_idx + 1
-                            }
-                        } else {
-                            // use sliding window to look for preamble sequence
-                            head_idx = head_idx + 1
-                        }
+                if (!self.detectedPreambleSequence && self.cool_down_ticks <= 0) {
+                    if currColorChange! > self.average_init_color * 1.3 {
+                        print("detected preamble")
+                        self.detectedPreambleSequence = true
+                        // the first ever bright image is part of data
+                        // keep it
+                        head_idx = tail_idx
                     }
+                    
+//                    if (tail_idx - head_idx >= FRAME_SIZE * self.PreambleSequence.count - 1) {
+//                        let currFFToutput = simpleFFT.runFFTonSignal(Array(data_buf[(tail_idx - FRAME_SIZE + 1)...tail_idx]))
+//                        let currDataBit = self.resultManager.getDataBit(signal: currFFToutput)
+//                        if (currDataBit == self.PreambleSequence[1]) {
+//                            let FFToutput = simpleFFT.runFFTonSignal(Array(data_buf[head_idx...(head_idx + FRAME_SIZE - 1)]))
+//                            let lastDataBit = self.resultManager.getDataBit(signal: FFToutput)
+//                            if (lastDataBit == self.PreambleSequence[0]) {
+//                                print("detected preamble")
+//                                print("preabmble [0]: \(FFToutput) as \(lastDataBit)")
+//                                print("preablme [1]: \(currFFToutput) as \(currDataBit)")
+//
+//                                self.detectedPreambleSequence = true
+//                                // have finished preamble, we can just skip to next data
+//                                head_idx = tail_idx + 1
+//                            }
+//                        } else {
+//                            // use sliding window to look for preamble sequence
+//                            head_idx = head_idx + 1
+//                        }
+//                    }
                 } else {
                     // we have preabmel sequence found
                     // array slicing in swift is inclusive on both ends
                     if (tail_idx - head_idx >= FRAME_SIZE - 1) {
+                        // ready for FFT!
                         let FFToutput = simpleFFT.runFFTonSignal(Array(data_buf[head_idx...tail_idx]))
                         let currDataBit = self.resultManager.getDataBit(signal: FFToutput)
-                        if (self.resultManager.resultSoFar.count == tot_packet_size - 1) {
-                            print("\(FFToutput) as \(currDataBit)")
-                            print("Final Result \(self.resultManager.resultSoFar) with correct? = \(self.resultManager.isSequenceCorrect(parityBit: currDataBit))")
-                            self.resultManager.clearResult()
-                            self.detectedPreambleSequence = false
-                            return
-                        }
-                        
                         self.resultManager.appendDataBit(datab: currDataBit)
                         print("\(FFToutput) as \(currDataBit)")
+                        if (self.resultManager.resultSoFar.count == tot_packet_size) {
+                            print("Final Result \(self.resultManager.resultSoFar) with correct? = \(self.resultManager.isSequenceCorrect())")
+                            self.resultManager.clearResult()
+                            self.detectedPreambleSequence = false
+                            // cool down for 2 frames
+                            self.cool_down_ticks = 2
+                        }
+//
+//                        if (self.resultManager.resultSoFar.count == tot_packet_size - 1) {
+//                            // end of packet! check parity
+//                            print("\(FFToutput) as \(currDataBit)")
+//                            print("Final Result \(self.resultManager.resultSoFar) with correct? = \(self.resultManager.isSequenceCorrect(parityBit: currDataBit))")
+//                            self.resultManager.clearResult()
+//                            self.detectedPreambleSequence = false
+//
+//                            // cool down for 2 frames
+//                            self.cool_down_ticks = 2
+//                        } else {
+//                            // still more to go, continue appending packets
+//                            self.resultManager.appendDataBit(datab: currDataBit)
+//                            print("\(FFToutput) as \(currDataBit)")
+//                        }
+                        // skip all current data
                         head_idx = tail_idx + 1
                     }
                 }
@@ -239,7 +265,14 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
 //        guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else { return  }
 //
 //        let image = UIImage(cgImage: cgImage)
-
+        
+        
+        // used to identify preamble. allows cool down after
+        // decoding a packet
+        if (self.cool_down_ticks > 0) {
+            self.cool_down_ticks -= 1
+        }
+        
         // make sure we are at correct framerate
         if (lastTimerTick == 0) {
             lastTimerTick = tick
@@ -257,6 +290,10 @@ final class ScannerViewController: UIViewController, AVCaptureVideoDataOutputSam
         if (tick >= self.ini_n_frame) {
             DispatchQueue.main.async {
                 self.viewModel?.decoded_seq = "Ready!"
+                // do this once and exactly
+                if self.average_init_color == -1.0 {
+                    self.average_init_color = currColorChange!
+                }
             }
         }
 

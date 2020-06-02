@@ -70,8 +70,8 @@ class SimpleFFT {
                                             imagp: forwardOutputImagPtr)
         vDSP.absolute(forwardOutput, result: &forwardOutputMagnitude)
         
-        print("\(signal)")
-        print("\(forwardOutputMagnitude)")
+//        print("\(signal)")
+//        print("\(forwardOutputMagnitude)")
         
 //        let _ = withUnsafeMutablePointer(to: &forwardOutputReal, { forwardOutputRealPtr in
 //            let _ = withUnsafeMutablePointer(to: &forwardOutputImag, { forwardOutputImagPtr in
